@@ -83,10 +83,10 @@ static void* _matrix_multiply_async(void *args_void_pointer) {
     PyObject *method = PyObject_GetAttrString(future, "set_result");
     PyObject_CallMethodObjArgs(loop, Py_BuildValue("s", "call_soon_threadsafe"), method, res, NULL);
     GGIL_RELEASE;
-    Py_INCREF(matrix_A);
-    Py_INCREF(matrix_B);
-    Py_INCREF(loop);
-    Py_INCREF(future);
+    Py_DECREF(matrix_A);
+    Py_DECREF(matrix_B);
+    Py_DECREF(loop);
+    Py_DECREF(future);
     free(args);
     return NULL;
 }
