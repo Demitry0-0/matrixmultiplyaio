@@ -1,5 +1,10 @@
 #include <Python.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <pthread.h>
+#endif
+
 #define GGIL_DECLARE  PyGILState_STATE ___save
 #define GGIL_ENSURE  ___save = PyGILState_Ensure();
 #define GGIL_RELEASE  PyGILState_Release(___save);
@@ -70,7 +75,11 @@ static PyObject* matrix_multiply(PyObject *self, PyObject *args){
     return _matrix_multiply(matrix_A, matrix_B);
 }
 
+#ifdef _WIN32
+DWORD thread;
+#else
 pthread_t thread;
+#endif
 
 static void* _matrix_multiply_async(void *args_void_pointer) {
     PyObject **args = (PyObject**) args_void_pointer;
@@ -90,7 +99,36 @@ static void* _matrix_multiply_async(void *args_void_pointer) {
     free(args);
     return NULL;
 }
+static void thread_create(void *arg){
+#ifdef _WIN32
+    HANDLE threadHandle = CreateThread(
+        NULL,                   // атрибуты безопасности по умолчанию
+        0,                      // начальный стековый размер
+        (LPTHREAD_START_ROUTINE)_matrix_multiply_async, // функция потока
+        arg,                   // аргумент функции
+        0,                      // флаги создания
+        &thread              // идентификатор потока
+    );
+//
+//    if (threadHandle == NULL) {
+//        fprintf(stderr, "Error creating thread\n");
+//        return 1;
+//    }
+//
+//    WaitForSingleObject(threadHandle, INFINITE);
+//    CloseHandle(threadHandle);
+#else
+    int result = pthread_create(&thread, NULL, _matrix_multiply_async, arg);
 
+//    if (result != 0) {
+//        fprintf(stderr, "Error creating thread: %d\n", result);
+//        return 1;
+//    }
+//
+//    pthread_join(thread, NULL);
+#endif
+
+}
 static PyObject* matrix_multiply_async(PyObject *self, PyObject *args) {
     PyObject *matrix_A, *matrix_B, *loop;
     if (!PyArg_ParseTuple(args, "OOO", &matrix_A, &matrix_B, &loop))
@@ -110,7 +148,7 @@ static PyObject* matrix_multiply_async(PyObject *self, PyObject *args) {
     values[2] = loop;
     values[3] = future;
     //PyEval_InitThreads();
-    pthread_create(&thread, NULL, _matrix_multiply_async, (void*)values);
+    thread_create((void*)values);
     return future;
 }
 
